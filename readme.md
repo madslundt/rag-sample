@@ -2,7 +2,7 @@
 # Overview
 This project provides a set of Python scripts to populate and query a vectorstore database using LangChain's functionalities. The main features include:
 
-- Database Population: `populate_database.py` is used to load documents from a PDF file, split them into manageable chunks, and add them to a Chroma vectorstore. This process utilizes embeddings, which are numerical representations of text that capture semantic meaning, allowing efficient similarity search and retrieval of relevant content.
+- Database Population: `populate_database.py` is used to load documents from a PDF file, split them into manageable chunks, and add them to a Chroma vectorstore and doc store (if enabled). This process involves embeddings, which are numerical representations of text that capture semantic meaning, enabling efficient similarity search and retrieval of relevant content. Additionally, the script handles parent document retrieval, ensuring that the context of each chunk is preserved and that related content can be traced back to its original source for comprehensive data management and search accuracy.
 - Interactive Querying: `query_data.py` provides an interface to query the database interactively or via command-line arguments. It uses a Large Language Model (LLM) with multiquery capabilities to generate alternative versions of user queries, enhancing the retrieval of relevant documents and generating comprehensive answers.
 - Testing: Basic tests are provided to validate the querying capabilities using `pytest`.
 
@@ -35,11 +35,10 @@ pipenv shell
 
 # Usage
 ## 1. Populating the Database
-To populate the Chroma vectorstore database with the `Owners_Manual.pdf`, use the `populate_database.py` script. You can reset the database before loading new documents using the `--reset` flag.
-The embedding process converts text into numerical vectors for efficient similarity search. Each document chunk is assigned a unique `id` and a `hash` value to ensure that duplicates are not added. The script checks these identifiers against the existing database entries to determine if the document is already present.
+To populate the Chroma vectorstore and docstore with the content of `Owners_Manual.pdf`, use `populate_database.py`. You can reset the database before loading new documents using the `--reset` flag. The embedding process converts text into numerical vectors for efficient similarity search. Each document chunk is assigned a unique ID and a hash value to ensure that duplicates are not added. The script checks these identifiers against the existing vectorstore entries to determine if the document is already present. Additionally, the script supports parent document retrieval, allowing each chunk to be traced back to its original source, preserving context and ensuring accurate and comprehensive search results.
 
 ```bash
-python populate_database.py --reset
+python populate_database.py [--reset]
 ```
 
 ## 2. Querying the Database
@@ -53,7 +52,7 @@ To query using the command line:
 python query_data.py --query_text "Your query here"
 ```
 
-3. To enter interactive mode:
+To enter interactive mode:
 
 ```bash
 python query_data.py
@@ -73,8 +72,6 @@ pytest
 - `query_data.py`: Script for querying the vectorstore database and generating responses based on user questions using the LLM.
 - `test_rag.py`: Test cases to verify the functionality of the scripts by using an LLM to check if the results are accurate..
 - `env.py`: Contains environment variables and configurations such as paths and model names.
-- `helpers.py`: Helper functions for verbose printing and other utility tasks.
-- `get_vectorstore.py`: Script to initialize and get access to the vectorstore.
 
 # Notes
 The database is cleared when running `populate_database.py` with the `--reset` flag.

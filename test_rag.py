@@ -1,7 +1,8 @@
 from env import OLLAMA_MODEL
-from helpers import verbose_print
 from query_data import query_rag
 from langchain_community.llms.ollama import Ollama
+
+from utils import verbose_print
 
 EVAL_PROMPT = """
 Expected Response: {expected_response}

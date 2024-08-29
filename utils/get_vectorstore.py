@@ -1,10 +1,10 @@
 from env import CHROMA_COLLECTION_NAME, CHROMA_PATH
 import chromadb
-from get_embedding_function import get_embedding_function
+from utils.get_embedding_function import get_embedding_function
 from langchain_chroma import Chroma
 
 
-def get_vectorstore():
+def get_vectorstore() -> Chroma:
     persistent_client = chromadb.PersistentClient(
         path=CHROMA_PATH,
     )

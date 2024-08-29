@@ -1,13 +1,18 @@
 import argparse
-from env import OLLAMA_MODEL
-from get_vectorstore import get_vectorstore
+from langchain.retrievers.multi_query import LineListOutputParser
+from env import CHILD_CHUNK_SIZE, DOCSTORE_PATH, DOCSTORE_TABLE_NAME, OLLAMA_MODEL, PARENT_DOC_ID
+from utils import get_sqlitestore, verbose_print
+from utils.get_vectorstore import get_vectorstore
 from langchain_core.prompts import PromptTemplate
 from langchain_community.llms.ollama import Ollama
 from langchain.chains.query_constructor.base import AttributeInfo
-from langchain_core.output_parsers import BaseOutputParser
-from helpers import verbose_print
+from langchain.retrievers.multi_vector import MultiVectorRetriever
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.documents import Document
 
-def main():
+USE_MULTIVECTOR_RETRIEVER: bool = CHILD_CHUNK_SIZE > 0
+
+def main() -> None:
     """Main function to handle command-line arguments and interactive querying."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--query_text", type=str, help="The query text.")
@@ -19,7 +24,7 @@ def main():
     else:
         interactive_query_loop()
 
-def interactive_query_loop():
+def interactive_query_loop() -> None:
     """Runs an interactive loop to query until 'exit' or 'q' is entered."""
     while True:
         query = input("\nQuery: ").strip()
@@ -36,22 +41,42 @@ def get_metadata_field_info() -> list[AttributeInfo]:
     """Returns metadata field information."""
     return [
         AttributeInfo(
+            name="id",
+            description="Unique id of the document chunk",
+            type="string",
+        ),
+        AttributeInfo(
             name="source",
             description="Source name of the document from which the information was extracted.",
             type="string",
+        ),
+        AttributeInfo(
+            name="hash",
+            description="SHA1 Hash of the document chunks",
+            type="string",
+        ),
+        AttributeInfo(
+            name="page",
+            description="Page the chunk appears on in the main document",
+            type="int",
         )
     ]
 
-class LineListOutputParser(BaseOutputParser[list[str]]):
-    """Output parser for a list of lines."""
-    def parse(self, text: str) -> list[str]:
-        return [line for line in text.strip().split("\n") if line]
-
-def query_rag(query_text: str):
+def query_rag(query_text: str) -> None:
     """Handles the query process, from generating alternatives to retrieving relevant documents and generating a response."""
     try:
-        db = get_vectorstore()
-        retriever = db.as_retriever()
+        vectorstore = get_vectorstore()
+        retriever: BaseRetriever
+        if USE_MULTIVECTOR_RETRIEVER:
+            docstore = get_sqlitestore(DOCSTORE_PATH, DOCSTORE_TABLE_NAME)
+            retriever = MultiVectorRetriever(
+                vectorstore=vectorstore,
+                docstore=docstore,
+                id_key=PARENT_DOC_ID,
+            )
+        else:
+            retriever = vectorstore.as_retriever()
+
         llm = Ollama(model=OLLAMA_MODEL)
         query_output_parser = LineListOutputParser()
 
@@ -79,7 +104,7 @@ def query_rag(query_text: str):
     except Exception as e:
         print(f"An error occurred: {e}")
 
-def retrieve_relevant_docs(questions: list[str], retriever) -> tuple[list, list]:
+def retrieve_relevant_docs(questions: list[str], retriever: BaseRetriever) -> tuple[list, list]:
     """Retrieves relevant documents based on generated questions."""
     relevant_docs = []
     source_ids = set()
@@ -95,7 +120,7 @@ def retrieve_relevant_docs(questions: list[str], retriever) -> tuple[list, list]
 
     return relevant_docs, source_pages
 
-def generate_response(query_text: str, relevant_docs: list) -> str:
+def generate_response(query_text: str, relevant_docs: list[Document]) -> str:
     """Generates a response based on the context from relevant documents."""
     context_text = "\n\n---\n\n".join(doc.page_content for doc in relevant_docs)
     prompt = get_prompt(
